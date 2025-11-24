@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- 這行很重要：控制手機版縮放，不然版面會爆掉 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Money Tracker</title>
+
+    <!-- =============== Icons =============== -->
+    <!-- 如果你用的是 JPG，把 .png 換成 .jpg -->
+    <link rel="icon" type="image/png" href="/money-tracker-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- =============== PWA Meta =============== -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Money Tracker" />
+    <meta name="application-name" content="Money Tracker" />
+    <meta name="theme-color" content="#7A90A4" />
+
+    <!-- =============== Manifest (一定要在 head 裡) =============== -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
