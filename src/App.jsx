@@ -148,6 +148,7 @@ export default function App() {
   const [goals, setGoals] = useState([]);
   const [walletName, setWalletName] = useState('My Wallet');
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [budgetSetting, setBudgetSetting] = useState({ enabled: false, cycle: 'month', type: 'expense', amount: 0 });
   const [loading, setLoading] = useState(true);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [defaultAccId, setDefaultAccId] = useState(null);
@@ -161,6 +162,8 @@ export default function App() {
   const showToast = (msg, type='success') => { setToast({ show: true, message: msg, type }); setTimeout(() => setToast({ show: false }), 2500); };
   const openConfirm = (title, msg, onConfirm) => setModal({ isOpen: true, title, message: msg, onConfirm: async () => { setModal({ isOpen: false }); await onConfirm(); } });
   const closeModal = () => setModal({ isOpen: false });
+
+  
 
   useEffect(() => localStorage.setItem('theme', currentTheme), [currentTheme]);
   
@@ -258,6 +261,8 @@ export default function App() {
         if (data.theme) setCurrentTheme(data.theme);
         // 🔥 新增這一行讀取字體
         if (data.fontSize) setFontSize(data.fontSize);
+        // 🔥 [新增] 讀取預算設定
+        if (data.budgetSetting) setBudgetSetting(data.budgetSetting);
       }
     }
   );
@@ -420,6 +425,14 @@ export default function App() {
     setCategories(newCategories); showToast('類別已更新');
   };
 
+  // 🔥 [新增] 在 saveCategories 下方，加入這個『預算功能』儲存函式
+  const saveBudgetSetting = async (newSetting) => {
+    if (!user) return;
+    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'), { budgetSetting: newSetting }, { merge: true });
+    setBudgetSetting(newSetting);
+    showToast('預算設定已更新');
+  };
+
   // 🔥 新增：刪除類別功能 (解決 confirm 失效問題)
   const handleDeleteCategory = (targetCat, type) => {
     openConfirm('刪除類別', `確定要刪除「${targetCat}」嗎？`, async () => {
@@ -430,6 +443,7 @@ export default function App() {
         await saveCategories(newCategories);
     });
   };
+  
   
   const exportCSV = () => {
       if(!transactions.length) return showToast('無資料可匯出','error');
@@ -481,8 +495,8 @@ export default function App() {
         {view === 'analysis' && <AnalysisView txs={transactions} theme={theme} accounts={accounts} stats={stats} />} 
         {view === 'goals' && <GoalsView goals={goals} accounts={accounts} onSave={saveGoal} onDel={delGoal} onDeposit={depositGoal} onPin={togglePinGoal} onMove={moveGoal} theme={theme} />}
         {/* 🔥 修正：傳遞 onDeleteCategory */}
-        {view === 'settings' && <SettingsView theme={theme} name={walletName} onSaveName={saveSettings} accounts={accounts} onSaveAccount={saveAcc} onDeleteAccount={delAcc} onPin={togglePin} onMove={moveAcc} user={user} onLogout={handleLogout} setTheme={handleSetTheme} curTheme={currentTheme} onExport={exportCSV} categories={categories} onSaveCategories={saveCategories} onDeleteCategory={handleDeleteCategory} fontSize={fontSize} onSetFontSize={handleSetFontSize} />}
-        {view === 'dashboard' && <DashboardView stats={stats} recents={transactions.slice(0,5)} onView={setView} theme={theme} hasTx={transactions.length>0} accounts={accounts} onEdit={(t)=>{setEditingTransaction(t);setView('add')}} onDel={delTx} onQuickAdd={(aid)=>{setDefaultAccId(aid);setView('add')}} />}
+        {view === 'settings' && <SettingsView theme={theme} name={walletName} onSaveName={saveSettings} accounts={accounts} onSaveAccount={saveAcc} onDeleteAccount={delAcc} onPin={togglePin} onMove={moveAcc} user={user} onLogout={handleLogout} setTheme={handleSetTheme} curTheme={currentTheme} onExport={exportCSV} categories={categories} onSaveCategories={saveCategories} onDeleteCategory={handleDeleteCategory} fontSize={fontSize} onSetFontSize={handleSetFontSize} budgetSetting={budgetSetting} onSaveBudget={saveBudgetSetting} />}
+        {view === 'dashboard' && <DashboardView stats={stats} recents={transactions.slice(0,5)} onView={setView} theme={theme} hasTx={transactions.length>0} accounts={accounts} onEdit={(t)=>{setEditingTransaction(t);setView('add')}} onDel={delTx} onQuickAdd={(aid)=>{setDefaultAccId(aid);setView('add')}} transactions={transactions} budgetSetting={budgetSetting} />}
       </div>
 
       <div className="absolute bottom-0 w-full bg-white/95 backdrop-blur-xl border-t border-gray-100 flex justify-around py-3 pb-6 z-20">
@@ -557,7 +571,7 @@ const AnalysisView = ({ txs, theme, accounts, stats }) => {
           <div className="bg-gray-100 p-1 rounded-xl flex mb-2">{['year','month','week','day'].map(m=><button key={m} onClick={()=>setMode(m)} className={`flex-1 py-1 text-xs font-bold rounded-lg ${mode===m?'bg-white shadow-sm':'text-gray-400'}`}>{{year:'年',month:'月',week:'週',day:'日'}[m]}</button>)}</div>
           
           <div className="flex justify-between items-center bg-white p-2 rounded-2xl shadow-sm border border-gray-100"><button onClick={()=>changeDate(-1)} className="p-2 text-gray-500"><ChevronLeft/></button><span className="font-bold text-gray-700">{l}</span><button onClick={()=>changeDate(1)} className="p-2 text-gray-500"><ChevronRight/></button></div>
-         
+    
         {/* 🔥 新增：收支結餘分析卡片 */}
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-3">
              <div className="flex justify-between items-center">
@@ -613,31 +627,115 @@ const AnalysisView = ({ txs, theme, accounts, stats }) => {
   );
 };
 
-const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit, onDel, onQuickAdd }) => (
-  <div className="p-5 space-y-6 animate-fade-in">
-    <div onClick={()=>onView('analysis')} className={`bg-gradient-to-br ${theme.gradient} rounded-[32px] p-7 text-white shadow-xl cursor-pointer active:scale-[0.98]`}>
-       <p className="text-white/80 text-sm mb-2 flex items-center gap-1"><Wallet className="w-3.5 h-3.5"/> 淨資產 <ChevronRight className="w-4 h-4 opacity-50"/></p>
-       <h2 className="text-4xl font-bold mb-8 font-serif">${stats.balance.toLocaleString()}</h2>
-       <div className="flex justify-between bg-black/10 rounded-2xl p-4 backdrop-blur-sm">
-           <div className="flex gap-2 items-center"><div className="bg-white/20 p-1.5 rounded-full"><TrendingUp className="w-4 h-4"/></div><div><p className="text-xs text-white/80">收入</p><p className="font-bold">+${stats.income.toLocaleString()}</p></div></div>
-           <div className="flex gap-2 items-center"><div className="bg-white/20 p-1.5 rounded-full"><TrendingDown className="w-4 h-4"/></div><div><p className="text-xs text-white/80">支出</p><p className="font-bold">-${stats.expense.toLocaleString()}</p></div></div>
-       </div>
+
+const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit, onDel, onQuickAdd, transactions, budgetSetting }) => {
+
+  // 🔥 1. 計算預算進度 (這段就是原本沒地方塞的邏輯)
+  const budgetData = useMemo(() => {
+      if (!budgetSetting?.enabled || !budgetSetting.amount) return null;
+      
+      const now = new Date();
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0); 
+
+      if (budgetSetting.cycle === 'week') {
+          const day = start.getDay() || 7; 
+          start.setDate(start.getDate() - day + 1); 
+      } else if (budgetSetting.cycle === 'month') {
+          start.setDate(1); 
+      } else if (budgetSetting.cycle === 'year') {
+          start.setMonth(0, 1);
+      }
+
+      const current = transactions
+        .filter(t => new Date(t.date) >= start && t.type === budgetSetting.type)
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const pct = Math.min(100, (current / budgetSetting.amount) * 100);
+      const isExp = budgetSetting.type === 'expense';
+      
+      // 顏色邏輯：支出(綠->黃->紅)，收入(灰->藍->金)
+      let color = theme.primary;
+      if (isExp) {
+          if (pct > 90) color = 'bg-red-500';
+          else if (pct > 70) color = 'bg-orange-400';
+          else color = 'bg-emerald-500';
+      } else {
+          if (pct >= 100) color = 'bg-yellow-400';
+          else color = theme.primary;
+      }
+
+      return { current, target: budgetSetting.amount, pct, color, label: isExp ? '剩餘預算' : '距離目標', diff: budgetSetting.amount - current };
+  }, [transactions, budgetSetting, theme]);
+
+  // 🔥 2. 畫面顯示
+  return (
+    <div className="p-5 space-y-6 animate-fade-in">
+      {/* 淨資產大卡片 */}
+      <div onClick={()=>onView('analysis')} className={`bg-gradient-to-br ${theme.gradient} rounded-[32px] p-7 text-white shadow-xl cursor-pointer active:scale-[0.98]`}>
+         <p className="text-white/80 text-sm mb-2 flex items-center gap-1"><Wallet className="w-3.5 h-3.5"/> 淨資產 <ChevronRight className="w-4 h-4 opacity-50"/></p>
+         <h2 className="text-4xl font-bold mb-8 font-serif">${stats.balance.toLocaleString()}</h2>
+         <div className="flex justify-between bg-black/10 rounded-2xl p-4 backdrop-blur-sm">
+             <div className="flex gap-2 items-center"><div className="bg-white/20 p-1.5 rounded-full"><TrendingUp className="w-4 h-4"/></div><div><p className="text-xs text-white/80">收入</p><p className="font-bold">+${stats.income.toLocaleString()}</p></div></div>
+             <div className="flex gap-2 items-center"><div className="bg-white/20 p-1.5 rounded-full"><TrendingDown className="w-4 h-4"/></div><div><p className="text-xs text-white/80">支出</p><p className="font-bold">-${stats.expense.toLocaleString()}</p></div></div>
+         </div>
+      </div>
+
+      {/* 🔥 預算進度卡片 (有設定才會出現) */}
+      {budgetData && (
+        <div className="bg-white p-5 rounded-[28px] shadow-sm border border-gray-100 relative overflow-hidden">
+            <div className="flex justify-between items-end mb-2 relative z-10">
+                <div>
+                    <p className="text-xs font-bold text-gray-400 flex items-center gap-1">
+                        {budgetSetting.cycle === 'day' ? '今日' : budgetSetting.cycle === 'week' ? '本週' : budgetSetting.cycle === 'month' ? '本月' : '今年'}
+                        {budgetSetting.type === 'expense' ? '支出上限' : '收入目標'}
+                    </p>
+                    <h3 className="text-xl font-bold text-gray-700 mt-1">
+                        ${budgetData.current.toLocaleString()} <span className="text-sm text-gray-300">/ ${budgetData.target.toLocaleString()}</span>
+                    </h3>
+                </div>
+                <div className="text-right">
+                    <p className="text-xs font-bold text-gray-400">{budgetData.label}</p>
+                    <p className={`font-bold ${budgetData.diff < 0 ? 'text-red-500' : 'text-gray-600'}`}>
+                        {budgetData.diff < 0 ? (budgetSetting.type==='expense'?'超支 ':'還差 ') : ''}${Math.abs(budgetData.diff).toLocaleString()}
+                    </p>
+                </div>
+            </div>
+            <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden relative z-10">
+                <div 
+                    className={`h-full rounded-full transition-all duration-1000 ${budgetData.color}`} 
+                    style={{ width: `${budgetData.pct}%` }}
+                ></div>
+            </div>
+            <div className={`absolute -right-5 -bottom-10 w-24 h-24 rounded-full opacity-10 ${theme.primary} blur-xl`}></div>
+        </div>
+      )}
+
+      {/* 我的帳戶列表 */}
+      <div>
+         <h3 className="font-bold text-gray-500 text-sm mb-3 px-1 flex justify-between"><span>我的帳戶</span><span onClick={()=>onView('settings')} className={`${theme.accent} cursor-pointer`}>管理</span></h3>
+         <div className="grid grid-cols-2 gap-3">{accounts.map(a=>(
+             <button key={a.id} onClick={()=>onQuickAdd(a.id)} className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm text-left h-24 flex flex-col justify-between hover:shadow-md transition-all relative overflow-hidden">
+                <div className={`absolute -right-4 -top-4 w-16 h-16 rounded-full opacity-[0.08] ${theme.primary}`}></div>
+                <div className="flex gap-2 items-center"><div className="p-1.5 bg-gray-50 rounded-lg text-gray-500"><DynamicIcon iconName={a.icon} className="w-4 h-4"/></div>{a.isPinned && <Pin className={`w-3 h-3 ${theme.accent}`} fill="currentColor"/>}</div>
+                <div>
+                  <span className="text-xs text-gray-400 block">{a.name}</span>
+                  <span className={`text-lg font-bold ${(stats.balances[a.id]||0) < 0 ? 'text-red-700' : 'text-gray-700'}`}>
+                    ${(stats.balances[a.id]||0).toLocaleString()}
+                  </span>
+                </div>
+             </button>
+         ))}</div>
+      </div>
+
+      {/* 近期動態 */}
+      <div>
+         <div className="flex justify-between mb-4"><h3 className="font-bold text-gray-500">近期動態</h3>{hasTx && <button onClick={()=>onView('history')} className={`text-xs ${theme.accent} font-bold bg-white px-3 py-1 rounded-full shadow-sm`}>全部 <ChevronRight className="w-3 h-3 inline"/></button>}</div>
+         {recents.length===0 ? <EmptyState theme={theme}/> : <div className="space-y-3">{recents.map(t=><TxItem key={t.id} data={t} theme={theme} accs={accounts} onClick={()=>onEdit(t)} onDel={onDel} />)}</div>}
+      </div>
     </div>
-    <div>
-       <h3 className="font-bold text-gray-500 text-sm mb-3 px-1 flex justify-between"><span>我的帳戶</span><span onClick={()=>onView('settings')} className={`${theme.accent} cursor-pointer`}>管理</span></h3>
-       <div className="grid grid-cols-2 gap-3">{accounts.map(a=>(
-           <button key={a.id} onClick={()=>onQuickAdd(a.id)} className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm text-left h-24 flex flex-col justify-between hover:shadow-md transition-all relative overflow-hidden">
-              <div className={`absolute -right-4 -top-4 w-16 h-16 rounded-full opacity-[0.08] ${theme.primary}`}></div>
-              <div className="flex gap-2 items-center"><div className="p-1.5 bg-gray-50 rounded-lg text-gray-500"><DynamicIcon iconName={a.icon} className="w-4 h-4"/></div>{a.isPinned && <Pin className={`w-3 h-3 ${theme.accent}`} fill="currentColor"/>}</div>
-              <div> <span className="text-xs text-gray-400 block">{a.name}</span> <span className={`text-lg font-bold ${(stats.balances[a.id]||0) < 0 ? 'text-red-700' : 'text-gray-700'}`}> ${(stats.balances[a.id]||0).toLocaleString()}</span> </div>           </button>
-       ))}</div>
-    </div>
-    <div>
-       <div className="flex justify-between mb-4"><h3 className="font-bold text-gray-500">近期動態</h3>{hasTx && <button onClick={()=>onView('history')} className={`text-xs ${theme.accent} font-bold bg-white px-3 py-1 rounded-full shadow-sm`}>全部 <ChevronRight className="w-3 h-3 inline"/></button>}</div>
-       {recents.length===0 ? <EmptyState theme={theme}/> : <div className="space-y-3">{recents.map(t=><TxItem key={t.id} data={t} theme={theme} accs={accounts} onClick={()=>onEdit(t)} onDel={onDel} />)}</div>}
-    </div>
-  </div>
-);
+  );
+};
 
 const GoalsView = ({ goals, accounts, onSave, onDel, onDeposit, onPin, onMove, theme }) => {
   const [isAdd, setIsAdd] = useState(false);
@@ -656,8 +754,8 @@ const GoalsView = ({ goals, accounts, onSave, onDel, onDeposit, onPin, onMove, t
       }
   };
   const deposit = () => { if(dep.amt && dep.acc) { onDeposit(depGoal.id, dep.amt, dep.acc, depGoal.name); setDepGoal(null); setDep({amt:'', acc:accounts[0]?.id}); }};
-
-  return (
+  
+    return (
     <div className="p-5 pb-20 animate-fade-in space-y-6">
       <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-gray-800 flex gap-2"><Target className={theme.accent}/> 夢想存錢罐</h2><button onClick={()=>{setIsAdd(!isAdd);setEditGoal(null);setForm({name:'',target:'',icon:'target'})}} className={`px-4 py-2 rounded-xl text-sm font-bold text-white shadow-lg ${theme.primary}`}>{isAdd?'取消':'+ 目標'}</button></div>
       {isAdd && (
@@ -875,7 +973,7 @@ const HistoryView = ({ txs, onDel, onEdit, theme, accounts, onBatchUpdate, onBat
 };
 
 // 🔥 修正：接收 onDeleteCategory
-const SettingsView = ({ theme, name, onSaveName, accounts, onSaveAccount, onDeleteAccount, onPin, onMove, user, onLogout, setTheme, curTheme, onExport, categories, onSaveCategories, onDeleteCategory, fontSize, onSetFontSize }) => {
+const SettingsView = ({ theme, name, onSaveName, accounts, onSaveAccount, onDeleteAccount, onPin, onMove, user, onLogout, setTheme, curTheme, onExport, categories, onSaveCategories, onDeleteCategory, fontSize, onSetFontSize, budgetSetting, onSaveBudget }) => {
   const [editName, setEditName] = useState(false);
   const [tmpName, setTmpName] = useState(name);
   const [addAcc, setAddAcc] = useState(false);
@@ -919,7 +1017,46 @@ const SettingsView = ({ theme, name, onSaveName, accounts, onSaveAccount, onDele
          <h3 className="text-xs font-bold text-gray-400 mb-4 flex gap-2"><Edit3 className="w-4 h-4"/> 名稱</h3>
          {editName ? <div className="flex gap-2"><input value={tmpName} onChange={e=>setTmpName(e.target.value)} className="flex-1 border-b-2 font-bold text-gray-700 outline-none"/><button onClick={handleSaveName} className={`px-4 py-1.5 rounded-xl ${theme.primary} text-white text-sm font-bold`}>儲存</button></div> : <div onClick={()=>setEditName(true)} className="flex justify-between cursor-pointer"><span className="font-bold text-lg text-gray-700">{name}</span><span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">修改</span></div>}
       </div>
-
+      
+      {/* 🔥 新增：預算/目標設定 */}
+      <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+         <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xs font-bold text-gray-400 flex gap-2"><Calculator className="w-4 h-4"/> 預算與目標</h3>
+            <div onClick={() => onSaveBudget({ ...budgetSetting, enabled: !budgetSetting.enabled })} className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors ${budgetSetting.enabled ? theme.primary : 'bg-gray-200'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${budgetSetting.enabled ? 'translate-x-4' : ''}`}></div>
+            </div>
+         </div>
+         
+         {budgetSetting.enabled && (
+             <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                 <div className="flex bg-gray-100 rounded-xl p-1">
+                    {['expense', 'income'].map(t => (
+                        <button key={t} onClick={() => onSaveBudget({ ...budgetSetting, type: t })} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${budgetSetting.type === t ? 'bg-white shadow-sm text-gray-700' : 'text-gray-400'}`}>
+                            {t === 'expense' ? '控制支出' : '累積收入'}
+                        </button>
+                    ))}
+                 </div>
+                 <div className="flex bg-gray-100 rounded-xl p-1">
+                    {['day', 'week', 'month', 'year'].map(c => (
+                        <button key={c} onClick={() => onSaveBudget({ ...budgetSetting, cycle: c })} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${budgetSetting.cycle === c ? 'bg-white shadow-sm text-gray-700' : 'text-gray-400'}`}>
+                            {{day:'日',week:'週',month:'月',year:'年'}[c]}
+                        </button>
+                    ))}
+                 </div>
+                 <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                    <input 
+                        type="number" 
+                        value={budgetSetting.amount} 
+                        onChange={e => onSaveBudget({ ...budgetSetting, amount: Number(e.target.value) })} 
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-8 pr-4 font-bold text-gray-700 outline-none focus:border-blue-300 transition-colors"
+                        placeholder="設定金額"
+                    />
+                 </div>
+             </div>
+         )}
+      </div>
+      
        {/* 🔥 新增：類別管理 */}
        <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
         <h3 className="text-xs font-bold text-gray-400 mb-4 flex gap-2"><Tag className="w-4 h-4"/> 類別管理</h3>
