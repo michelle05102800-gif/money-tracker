@@ -628,9 +628,10 @@ const AnalysisView = ({ txs, theme, accounts, stats }) => {
 };
 
 
+// 記得參數要加： transactions, budgetSetting
 const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit, onDel, onQuickAdd, transactions, budgetSetting }) => {
 
-  // 🔥 1. 計算預算進度 (這段就是原本沒地方塞的邏輯)
+  // 🔥 1. 計算預算進度
   const budgetData = useMemo(() => {
       if (!budgetSetting?.enabled || !budgetSetting.amount) return null;
       
@@ -654,21 +655,14 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
       const pct = Math.min(100, (current / budgetSetting.amount) * 100);
       const isExp = budgetSetting.type === 'expense';
       
-      // 顏色邏輯：支出(綠->黃->紅)，收入(灰->藍->金)
-      let color = theme.primary;
-      if (isExp) {
-          if (pct > 90) color = 'bg-red-500';
-          else if (pct > 70) color = 'bg-orange-400';
-          else color = 'bg-emerald-500';
-      } else {
-          if (pct >= 100) color = 'bg-yellow-400';
-          else color = theme.primary;
-      }
+      // 🔥 顏色修改：跟分析頁面一致 (深紅/深綠)
+      // 支出預算 -> 用深紅 (代表支出)
+      // 收入目標 -> 用深綠 (代表收入)
+      const color = isExp ? 'bg-red-700' : 'bg-emerald-700';
 
       return { current, target: budgetSetting.amount, pct, color, label: isExp ? '剩餘預算' : '距離目標', diff: budgetSetting.amount - current };
-  }, [transactions, budgetSetting, theme]);
+  }, [transactions, budgetSetting]);
 
-  // 🔥 2. 畫面顯示
   return (
     <div className="p-5 space-y-6 animate-fade-in">
       {/* 淨資產大卡片 */}
@@ -681,8 +675,8 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
          </div>
       </div>
 
-      {/* 🔥 預算進度卡片 (有設定才會出現) */}
-      {budgetData && (
+      {/* 🔥 預算區塊：有開啟顯示進度，沒開啟顯示引導按鈕 */}
+      {budgetSetting?.enabled && budgetData ? (
         <div className="bg-white p-5 rounded-[28px] shadow-sm border border-gray-100 relative overflow-hidden">
             <div className="flex justify-between items-end mb-2 relative z-10">
                 <div>
@@ -696,7 +690,7 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
                 </div>
                 <div className="text-right">
                     <p className="text-xs font-bold text-gray-400">{budgetData.label}</p>
-                    <p className={`font-bold ${budgetData.diff < 0 ? 'text-red-500' : 'text-gray-600'}`}>
+                    <p className={`font-bold ${budgetData.diff < 0 ? 'text-red-700' : 'text-gray-600'}`}>
                         {budgetData.diff < 0 ? (budgetSetting.type==='expense'?'超支 ':'還差 ') : ''}${Math.abs(budgetData.diff).toLocaleString()}
                     </p>
                 </div>
@@ -707,7 +701,24 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
                     style={{ width: `${budgetData.pct}%` }}
                 ></div>
             </div>
-            <div className={`absolute -right-5 -bottom-10 w-24 h-24 rounded-full opacity-10 ${theme.primary} blur-xl`}></div>
+            {/* 背景光暈也跟著變色 */}
+            <div className={`absolute -right-5 -bottom-10 w-24 h-24 rounded-full opacity-10 blur-xl ${budgetSetting.type === 'expense' ? 'bg-red-700' : 'bg-emerald-700'}`}></div>
+        </div>
+      ) : (
+        /* 🔥 新增：引導按鈕 (當沒開啟預算時顯示) */
+        <div onClick={() => onView('settings')} className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all group">
+            <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-2xl bg-gray-50 text-gray-400 group-hover:text-gray-600 group-hover:bg-gray-100 transition-colors`}>
+                    <Calculator className="w-6 h-6"/>
+                </div>
+                <div>
+                    <h3 className="font-bold text-gray-700 text-sm">設定預算目標</h3>
+                    <p className="text-xs text-gray-400">規劃每日、每月收支上限</p>
+                </div>
+            </div>
+            <div className="bg-gray-100 p-2 rounded-full text-gray-400 group-hover:bg-gray-200 group-hover:text-gray-600">
+                <ChevronRight className="w-4 h-4"/>
+            </div>
         </div>
       )}
 
