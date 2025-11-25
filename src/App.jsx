@@ -179,29 +179,84 @@ export default function App() {
   const handleGuest = async () => { try { await signInAnonymously(auth); } catch { showToast('登入失敗', 'error'); } };
   const handleLogout = () => openConfirm('登出', '確定要登出嗎？', () => signOut(auth));
 
-  // Data Sync
   useEffect(() => {
-    if (!user) return;
-    const userPath = `users/${user.uid}`;
-    const unsubTx = onSnapshot(query(collection(db, userPath, 'transactions')), s => setTransactions(s.docs.map(d => ({ id: d.id, ...d.data(), date: d.data().createdAt?.toDate() || new Date() })).sort((a,b) => b.date - a.date)));
-    const unsubAcc = onSnapshot(query(collection(db, userPath, 'accounts')), s => {
-      const docs = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.isPinned===true) - (a.isPinned===true) || (a.order||0) - (b.order||0));
-      if(docs.length === 0) addDoc(collection(db, userPath, 'accounts'), { name: '現金', type: 'cash', icon: 'coins', order: 0 });
-      else setAccounts(docs);
-    });
-    const unsubGoal = onSnapshot(query(collection(db, userPath, 'goals')), s => setGoals(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.isPinned===true) - (a.isPinned===true) || (a.order||0) - (b.order||0))));
-    
-    // 同步設定與類別
-    const unsubSet = onSnapshot(doc(db, userPath, 'settings', 'general'), d => {
+  if (!user) return;
+
+  // 跟你之前一樣的路徑：artifacts / smart-wallet / users / {uid} / ...
+  const collectionPath = (coll) => 
+    collection(db, 'artifacts', appId, 'users', user.uid, coll);
+  const docPath = (coll, id) => 
+    doc(db, 'artifacts', appId, 'users', user.uid, coll, id);
+
+  // 交易
+  const unsubTx = onSnapshot(
+    query(collectionPath('transactions')),
+    (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().createdAt?.toDate() || new Date()
+      }));
+      docs.sort((a, b) => b.date - a.date);
+      setTransactions(docs);
+    }
+  );
+
+  // 帳戶
+  const unsubAcc = onSnapshot(
+    query(collectionPath('accounts')),
+    (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      if (docs.length === 0) {
+        addDoc(collectionPath('accounts'), { 
+          name: '現金', 
+          type: 'cash', 
+          icon: 'coins', 
+          order: 0 
+        });
+      } else {
+        // pinned 優先、再看 order
+        docs.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          const orderA = a.order ?? 999;
+          const orderB = b.order ?? 999;
+          return orderA - orderB;
+        });
+        setAccounts(docs);
+      }
+    }
+  );
+
+  // 目標
+  const unsubGoal = onSnapshot(
+    query(collectionPath('goals')),
+    (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a,b) => (b.isPinned === true) - (a.isPinned === true) || (a.order || 0) - (b.order || 0));
+      setGoals(docs);
+    }
+  );
+
+  // 設定（settings/general）
+  const unsubSet = onSnapshot(
+    doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'),
+    (d) => {
       if (d.exists()) {
         const data = d.data();
         setWalletName(data.walletName || 'My Wallet');
         if (data.categories) setCategories(data.categories);
       }
-    });
-    
-    return () => { unsubTx(); unsubAcc(); unsubGoal(); unsubSet(); };
-  }, [user]);
+    }
+  );
+
+  return () => {
+    unsubTx();
+    unsubAcc();
+    unsubGoal();
+    unsubSet();
+  };
+}, [user]);
 
   // Actions
   const saveTx = async (data) => {
