@@ -571,21 +571,21 @@ const AnalysisView = ({ txs, theme, accounts, stats }) => {
              <div className="h-2 w-full bg-gray-100 rounded-full flex overflow-hidden">
                 <div 
                   style={{ width: `${(data.inc + data.exp) === 0 ? 0 : (data.inc / (data.inc + data.exp)) * 100}%` }} 
-                  className="h-full bg-emerald-400" 
+                  className="h-full bg-emerald-700" 
                 />
                 <div 
                   style={{ width: `${(data.inc + data.exp) === 0 ? 0 : (data.exp / (data.inc + data.exp)) * 100}%` }} 
-                  className="h-full bg-red-400" 
+                  className="h-full bg-red-700" 
                 />
              </div>
 
              <div className="flex justify-between text-xs font-bold text-gray-500">
                 <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                    <div className="w-2 h-2 rounded-full bg-emerald-700"></div>
                     <span>收入 ${data.inc.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                    <div className="w-2 h-2 rounded-full bg-red-700"></div>
                     <span>支出 ${data.exp.toLocaleString()}</span>
                 </div>
              </div>
