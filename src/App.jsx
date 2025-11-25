@@ -160,18 +160,6 @@ export default function App() {
   const showToast = (msg, type='success') => { setToast({ show: true, message: msg, type }); setTimeout(() => setToast({ show: false }), 2500); };
   const openConfirm = (title, msg, onConfirm) => setModal({ isOpen: true, title, message: msg, onConfirm: async () => { setModal({ isOpen: false }); await onConfirm(); } });
   const closeModal = () => setModal({ isOpen: false });
-  // ... 在原本的 showToast 附近加入這個函式
-  const handleSetTheme = async (newTheme) => {
-    setCurrentTheme(newTheme); // 先讓畫面變色，體驗較好
-    if (user) {
-      // 同步寫入資料庫
-      await setDoc(
-        doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'), 
-        { theme: newTheme }, 
-        { merge: true }
-      );
-    }
-  };
 
   useEffect(() => localStorage.setItem('theme', currentTheme), [currentTheme]);
   
