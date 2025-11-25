@@ -578,8 +578,7 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
            <button key={a.id} onClick={()=>onQuickAdd(a.id)} className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm text-left h-24 flex flex-col justify-between hover:shadow-md transition-all relative overflow-hidden">
               <div className={`absolute -right-4 -top-4 w-16 h-16 rounded-full opacity-[0.08] ${theme.primary}`}></div>
               <div className="flex gap-2 items-center"><div className="p-1.5 bg-gray-50 rounded-lg text-gray-500"><DynamicIcon iconName={a.icon} className="w-4 h-4"/></div>{a.isPinned && <Pin className={`w-3 h-3 ${theme.accent}`} fill="currentColor"/>}</div>
-              <div><span className="text-xs text-gray-400 block">{a.name}</span><span className="text-lg font-bold text-gray-700">${(stats.balances[a.id]||0).toLocaleString()}</span></div>
-           </button>
+              <div> <span className="text-xs text-gray-400 block">{a.name}</span> <span className={`text-lg font-bold ${(stats.balances[a.id]||0) < 0 ? 'text-red-700' : 'text-gray-700'}`}> ${(stats.balances[a.id]||0).toLocaleString()}</span> </div>           </button>
        ))}</div>
     </div>
     <div>
