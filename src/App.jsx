@@ -34,6 +34,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
+const appId = "smart-wallet";
 
 // --- 圖示集 ---
 const ACCOUNT_ICONS = [
