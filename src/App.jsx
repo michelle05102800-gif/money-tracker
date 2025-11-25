@@ -160,6 +160,18 @@ export default function App() {
   const showToast = (msg, type='success') => { setToast({ show: true, message: msg, type }); setTimeout(() => setToast({ show: false }), 2500); };
   const openConfirm = (title, msg, onConfirm) => setModal({ isOpen: true, title, message: msg, onConfirm: async () => { setModal({ isOpen: false }); await onConfirm(); } });
   const closeModal = () => setModal({ isOpen: false });
+  // ... 在原本的 showToast 附近加入這個函式
+  const handleSetTheme = async (newTheme) => {
+    setCurrentTheme(newTheme); // 先讓畫面變色，體驗較好
+    if (user) {
+      // 同步寫入資料庫
+      await setDoc(
+        doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'), 
+        { theme: newTheme }, 
+        { merge: true }
+      );
+    }
+  };
 
   useEffect(() => localStorage.setItem('theme', currentTheme), [currentTheme]);
   
@@ -238,6 +250,7 @@ export default function App() {
     }
   );
 
+
   // 設定（settings/general）
   const unsubSet = onSnapshot(
     doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'),
@@ -246,6 +259,8 @@ export default function App() {
         const data = d.data();
         setWalletName(data.walletName || 'My Wallet');
         if (data.categories) setCategories(data.categories);
+        // 🔥 [修正 1] 加入讀取主題
+        if (data.theme) setCurrentTheme(data.theme);
       }
     }
   );
@@ -258,29 +273,60 @@ export default function App() {
   };
 }, [user]);
 
-  // Actions
+// Actions
+  // 🔥 [修正 2] 新增這個函式來儲存主題
+  const handleSetTheme = async (newTheme) => {
+    setCurrentTheme(newTheme);
+    if (user) {
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'), { theme: newTheme }, { merge: true });
+    }
+  };
+
   const saveTx = async (data) => {
     try {
       const { id, ...dataToSave } = data;
       const payload = { ...dataToSave, amount: Number(dataToSave.amount), accountId: dataToSave.accountId || accounts[0]?.id, createdAt: dataToSave.date };
-      if (editingTransaction) { await updateDoc(doc(db, `users/${user.uid}/transactions`, editingTransaction.id), payload); showToast('已更新'); }
-      else { await addDoc(collection(db, `users/${user.uid}/transactions`), payload); showToast('新增成功'); }
+      // 🔥 [修正路徑]
+      if (editingTransaction) { 
+        await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'transactions', editingTransaction.id), payload); 
+        showToast('已更新'); 
+      } else { 
+        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'transactions'), payload); 
+        showToast('新增成功'); 
+      }
       setEditingTransaction(null); setView('dashboard');
     } catch { showToast('儲存失敗', 'error'); }
   };
-  const delTx = (id) => openConfirm('刪除', '確定刪除此紀錄？', async () => { await deleteDoc(doc(db, `users/${user.uid}/transactions`, id)); showToast('已刪除'); });
+
+  const delTx = (id) => openConfirm('刪除', '確定刪除此紀錄？', async () => { 
+    // 🔥 [修正路徑]
+    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'transactions', id)); 
+    showToast('已刪除'); 
+  });
   
   const saveAcc = async (accountData) => {
     if(!user) return;
     const { id, ...dataToSave } = accountData;
     try {
-      if (id) { await updateDoc(doc(db, `users/${user.uid}/accounts`, id), dataToSave); showToast('帳戶已更新'); }
-      else { await addDoc(collection(db, `users/${user.uid}/accounts`), { ...dataToSave, order: accounts.length, isPinned: false }); showToast('帳戶已新增'); }
+      // 🔥 [修正路徑]
+      if (id) { 
+        await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', id), dataToSave); 
+        showToast('帳戶已更新'); 
+      } else { 
+        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'accounts'), { ...dataToSave, order: accounts.length, isPinned: false }); 
+        showToast('帳戶已新增'); 
+      }
     } catch (e) { console.error(e); showToast('操作失敗', 'error'); }
   };
-  const delAcc = (id) => openConfirm('刪除', '確定刪除此帳戶？(相關紀錄不會被刪除)', async () => { await deleteDoc(doc(db, `users/${user.uid}/accounts`, id)); showToast('已刪除'); });
+
+  const delAcc = (id) => openConfirm('刪除', '確定刪除此帳戶？(相關紀錄不會被刪除)', async () => { 
+    // 🔥 [修正路徑]
+    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', id)); 
+    showToast('已刪除'); 
+  });
   
-  const togglePin = async (id, currentVal) => await updateDoc(doc(db, `users/${user.uid}/accounts`, id), { isPinned: !currentVal });
+  // 🔥 [修正路徑] (這是你遇到釘選無效的主因)
+  const togglePin = async (id, currentVal) => await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', id), { isPinned: !currentVal });
   
   const moveAcc = async (idx, dir) => {
       const newAccs = [...accounts];
@@ -288,8 +334,9 @@ export default function App() {
       if (targetIdx < 0 || targetIdx >= newAccs.length) return;
       const itemA = newAccs[idx]; const itemB = newAccs[targetIdx];
       const batch = writeBatch(db);
-      batch.update(doc(db, `users/${user.uid}/accounts`, itemA.id), { order: itemB.order ?? targetIdx });
-      batch.update(doc(db, `users/${user.uid}/accounts`, itemB.id), { order: itemA.order ?? idx });
+      // 🔥 [修正路徑] (這是你遇到移動無效的主因)
+      batch.update(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', itemA.id), { order: itemB.order ?? targetIdx });
+      batch.update(doc(db, 'artifacts', appId, 'users', user.uid, 'accounts', itemB.id), { order: itemA.order ?? idx });
       await batch.commit();
   };
   
@@ -298,35 +345,49 @@ export default function App() {
     const { id, target, ...rest } = goalData;
     const dataToSave = { ...rest, targetAmount: Number(target) };
     try {
-        if (id) await updateDoc(doc(db, `users/${user.uid}/goals`, id), dataToSave);
-        else await addDoc(collection(db, `users/${user.uid}/goals`), { ...dataToSave, currentAmount: 0, createdAt: serverTimestamp(), order: goals.length, isPinned: false });
+        // 🔥 [修正路徑]
+        if (id) await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'goals', id), dataToSave);
+        else await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'goals'), { ...dataToSave, currentAmount: 0, createdAt: serverTimestamp(), order: goals.length, isPinned: false });
         showToast('目標已儲存');
     } catch { showToast('失敗', 'error'); }
   };
-  const delGoal = (id) => openConfirm('刪除', '放棄此目標？', async () => { await deleteDoc(doc(db, `users/${user.uid}/goals`, id)); showToast('已刪除'); });
-  const togglePinGoal = async (g) => await updateDoc(doc(db, `users/${user.uid}/goals`, g.id), { isPinned: !g.isPinned });
+
+  const delGoal = (id) => openConfirm('刪除', '放棄此目標？', async () => { 
+    // 🔥 [修正路徑]
+    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'goals', id)); 
+    showToast('已刪除'); 
+  });
+
+  const togglePinGoal = async (g) => 
+    // 🔥 [修正路徑]
+    await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'goals', g.id), { isPinned: !g.isPinned });
+
   const moveGoal = async (idx, dir) => {
       const newGoals = [...goals];
       const targetIdx = dir === 'up' ? idx - 1 : idx + 1;
       if (targetIdx < 0 || targetIdx >= newGoals.length) return;
       const itemA = newGoals[idx]; const itemB = newGoals[targetIdx];
       const batch = writeBatch(db);
-      batch.update(doc(db, `users/${user.uid}/goals`, itemA.id), { order: itemB.order ?? targetIdx });
-      batch.update(doc(db, `users/${user.uid}/goals`, itemB.id), { order: itemA.order ?? idx });
+      // 🔥 [修正路徑]
+      batch.update(doc(db, 'artifacts', appId, 'users', user.uid, 'goals', itemA.id), { order: itemB.order ?? targetIdx });
+      batch.update(doc(db, 'artifacts', appId, 'users', user.uid, 'goals', itemB.id), { order: itemA.order ?? idx });
       await batch.commit();
   };
+
   const depositGoal = async (gid, amt, aid, gname) => {
     const batch = writeBatch(db);
-    batch.set(doc(collection(db, `users/${user.uid}/transactions`)), { amount: Number(amt), description: `存入: ${gname}`, category: '儲蓄', type: 'expense', accountId: aid, createdAt: new Date() });
+    // 🔥 [修正路徑] (兩處)
+    batch.set(doc(collection(db, 'artifacts', appId, 'users', user.uid, 'transactions')), { amount: Number(amt), description: `存入: ${gname}`, category: '儲蓄', type: 'expense', accountId: aid, createdAt: new Date() });
     const g = goals.find(g=>g.id===gid);
-    batch.update(doc(db, `users/${user.uid}/goals`, gid), { currentAmount: (g?.currentAmount||0) + Number(amt) });
+    batch.update(doc(db, 'artifacts', appId, 'users', user.uid, 'goals', gid), { currentAmount: (g?.currentAmount||0) + Number(amt) });
     await batch.commit(); showToast('存入成功');
   };
 
   const handleBatchUpdateAccount = (transactionIds, newAccountId, onSuccess) => {
     openConfirm('批量移動', `移動 ${transactionIds.length} 筆資料？`, async () => {
       const batch = writeBatch(db);
-      transactionIds.forEach(id => { const ref = doc(db, `users/${user.uid}/transactions`, id); batch.update(ref, { accountId: newAccountId }); });
+      // 🔥 [修正路徑]
+      transactionIds.forEach(id => { const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'transactions', id); batch.update(ref, { accountId: newAccountId }); });
       await batch.commit(); showToast('更新成功'); if (onSuccess) onSuccess();
     }, 'info');
   };
@@ -334,20 +395,23 @@ export default function App() {
   const handleBatchDelete = (transactionIds, onSuccess) => {
     openConfirm('批量刪除', `確定要刪除這 ${transactionIds.length} 筆資料嗎？(無法復原)`, async () => {
       const batch = writeBatch(db);
-      transactionIds.forEach(id => { const ref = doc(db, `users/${user.uid}/transactions`, id); batch.delete(ref); });
+      // 🔥 [修正路徑]
+      transactionIds.forEach(id => { const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'transactions', id); batch.delete(ref); });
       await batch.commit(); showToast('已批量刪除'); if (onSuccess) onSuccess();
     });
   };
 
   const saveSettings = async (newName) => {
     if (!user) return;
-    await setDoc(doc(db, `users/${user.uid}/settings`, 'general'), { walletName: newName }, { merge: true });
+    // 🔥 [修正路徑]
+    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'), { walletName: newName }, { merge: true });
     setWalletName(newName); showToast('設定已更新');
   };
 
   const saveCategories = async (newCategories) => {
     if (!user) return;
-    await setDoc(doc(db, `users/${user.uid}/settings`, 'general'), { categories: newCategories }, { merge: true });
+    // 🔥 [修正路徑]
+    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'), { categories: newCategories }, { merge: true });
     setCategories(newCategories); showToast('類別已更新');
   };
 
@@ -412,7 +476,7 @@ export default function App() {
         {view === 'analysis' && <AnalysisView txs={transactions} theme={theme} accounts={accounts} stats={stats} />} 
         {view === 'goals' && <GoalsView goals={goals} accounts={accounts} onSave={saveGoal} onDel={delGoal} onDeposit={depositGoal} onPin={togglePinGoal} onMove={moveGoal} theme={theme} />}
         {/* 🔥 修正：傳遞 onDeleteCategory */}
-        {view === 'settings' && <SettingsView theme={theme} name={walletName} onSaveName={saveSettings} accounts={accounts} onSaveAccount={saveAcc} onDeleteAccount={delAcc} onPin={togglePin} onMove={moveAcc} user={user} onLogout={handleLogout} setTheme={setCurrentTheme} curTheme={currentTheme} onExport={exportCSV} categories={categories} onSaveCategories={saveCategories} onDeleteCategory={handleDeleteCategory} />}
+        {view === 'settings' && <SettingsView theme={theme} name={walletName} onSaveName={saveSettings} accounts={accounts} onSaveAccount={saveAcc} onDeleteAccount={delAcc} onPin={togglePin} onMove={moveAcc} user={user} onLogout={handleLogout} setTheme={handleSetTheme} curTheme={currentTheme} onExport={exportCSV} categories={categories} onSaveCategories={saveCategories} onDeleteCategory={handleDeleteCategory} />}
         {view === 'dashboard' && <DashboardView stats={stats} recents={transactions.slice(0,5)} onView={setView} theme={theme} hasTx={transactions.length>0} accounts={accounts} onEdit={(t)=>{setEditingTransaction(t);setView('add')}} onDel={delTx} onQuickAdd={(aid)=>{setDefaultAccId(aid);setView('add')}} />}
       </div>
 
