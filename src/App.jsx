@@ -481,7 +481,7 @@ export default function App() {
         {view === 'analysis' && <AnalysisView txs={transactions} theme={theme} accounts={accounts} stats={stats} />} 
         {view === 'goals' && <GoalsView goals={goals} accounts={accounts} onSave={saveGoal} onDel={delGoal} onDeposit={depositGoal} onPin={togglePinGoal} onMove={moveGoal} theme={theme} />}
         {/* 🔥 修正：傳遞 onDeleteCategory */}
-        {view === 'settings' && <SettingsView theme={theme} name={walletName} onSaveName={saveSettings} accounts={accounts} onSaveAccount={saveAcc} onDeleteAccount={delAcc} onPin={togglePin} onMove={moveAcc} user={user} onLogout={handleLogout} setTheme={handleSetTheme} curTheme={currentTheme} onExport={exportCSV} categories={categories} onSaveCategories={saveCategories} onDeleteCategory={handleDeleteCategory}// 🔥 [新增這兩行] fontSize={fontSize} onSetFontSize={handleSetFontSize} />}
+        {view === 'settings' && <SettingsView theme={theme} name={walletName} onSaveName={saveSettings} accounts={accounts} onSaveAccount={saveAcc} onDeleteAccount={delAcc} onPin={togglePin} onMove={moveAcc} user={user} onLogout={handleLogout} setTheme={handleSetTheme} curTheme={currentTheme} onExport={exportCSV} categories={categories} onSaveCategories={saveCategories} onDeleteCategory={handleDeleteCategory} fontSize={fontSize} onSetFontSize={handleSetFontSize} />}
         {view === 'dashboard' && <DashboardView stats={stats} recents={transactions.slice(0,5)} onView={setView} theme={theme} hasTx={transactions.length>0} accounts={accounts} onEdit={(t)=>{setEditingTransaction(t);setView('add')}} onDel={delTx} onQuickAdd={(aid)=>{setDefaultAccId(aid);setView('add')}} />}
       </div>
 
