@@ -156,6 +156,7 @@ export default function App() {
   const [toast, setToast] = useState({ show: false, message: '' });
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('theme') || 'blue');
   const theme = THEMES[currentTheme];
+  const [fontSize, setFontSize] = useState('medium');
 
   const showToast = (msg, type='success') => { setToast({ show: true, message: msg, type }); setTimeout(() => setToast({ show: false }), 2500); };
   const openConfirm = (title, msg, onConfirm) => setModal({ isOpen: true, title, message: msg, onConfirm: async () => { setModal({ isOpen: false }); await onConfirm(); } });
@@ -173,6 +174,12 @@ export default function App() {
     const unsub = onAuthStateChanged(auth, u => { setUser(u); setLoading(false); });
     return () => unsub();
   }, []);
+
+  // 🔥 [新增] 監聽字體設定，動態調整根元素大小
+  useEffect(() => {
+    const sizeMap = { small: '14px', medium: '16px', large: '18px' };
+    document.documentElement.style.fontSize = sizeMap[fontSize] || '16px';
+  }, [fontSize]);
 
   // Handlers
   const handleGoogle = async () => { try { await signInWithPopup(auth, googleProvider); } catch { showToast('登入失敗', 'error'); } };
@@ -249,6 +256,8 @@ export default function App() {
         if (data.categories) setCategories(data.categories);
         // 🔥 [修正 1] 加入讀取主題
         if (data.theme) setCurrentTheme(data.theme);
+        // 🔥 新增這一行讀取字體
+        if (data.fontSize) setFontSize(data.fontSize);
       }
     }
   );
@@ -267,6 +276,14 @@ export default function App() {
     setCurrentTheme(newTheme);
     if (user) {
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'), { theme: newTheme }, { merge: true });
+    }
+  };
+  
+  //增加字體儲存設定
+  const handleSetFontSize = async (size) => {
+    setFontSize(size);
+    if (user) {
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general'), { fontSize: size }, { merge: true });
     }
   };
 
@@ -464,7 +481,7 @@ export default function App() {
         {view === 'analysis' && <AnalysisView txs={transactions} theme={theme} accounts={accounts} stats={stats} />} 
         {view === 'goals' && <GoalsView goals={goals} accounts={accounts} onSave={saveGoal} onDel={delGoal} onDeposit={depositGoal} onPin={togglePinGoal} onMove={moveGoal} theme={theme} />}
         {/* 🔥 修正：傳遞 onDeleteCategory */}
-        {view === 'settings' && <SettingsView theme={theme} name={walletName} onSaveName={saveSettings} accounts={accounts} onSaveAccount={saveAcc} onDeleteAccount={delAcc} onPin={togglePin} onMove={moveAcc} user={user} onLogout={handleLogout} setTheme={handleSetTheme} curTheme={currentTheme} onExport={exportCSV} categories={categories} onSaveCategories={saveCategories} onDeleteCategory={handleDeleteCategory} />}
+        {view === 'settings' && <SettingsView theme={theme} name={walletName} onSaveName={saveSettings} accounts={accounts} onSaveAccount={saveAcc} onDeleteAccount={delAcc} onPin={togglePin} onMove={moveAcc} user={user} onLogout={handleLogout} setTheme={handleSetTheme} curTheme={currentTheme} onExport={exportCSV} categories={categories} onSaveCategories={saveCategories} onDeleteCategory={handleDeleteCategory}// 🔥 [新增這兩行] fontSize={fontSize} onSetFontSize={handleSetFontSize} />}
         {view === 'dashboard' && <DashboardView stats={stats} recents={transactions.slice(0,5)} onView={setView} theme={theme} hasTx={transactions.length>0} accounts={accounts} onEdit={(t)=>{setEditingTransaction(t);setView('add')}} onDel={delTx} onQuickAdd={(aid)=>{setDefaultAccId(aid);setView('add')}} />}
       </div>
 
@@ -858,7 +875,7 @@ const HistoryView = ({ txs, onDel, onEdit, theme, accounts, onBatchUpdate, onBat
 };
 
 // 🔥 修正：接收 onDeleteCategory
-const SettingsView = ({ theme, name, onSaveName, accounts, onSaveAccount, onDeleteAccount, onPin, onMove, user, onLogout, setTheme, curTheme, onExport, categories, onSaveCategories, onDeleteCategory }) => {
+const SettingsView = ({ theme, name, onSaveName, accounts, onSaveAccount, onDeleteAccount, onPin, onMove, user, onLogout, setTheme, curTheme, onExport, categories, onSaveCategories, onDeleteCategory, fontSize, onSetFontSize }) => {
   const [editName, setEditName] = useState(false);
   const [tmpName, setTmpName] = useState(name);
   const [addAcc, setAddAcc] = useState(false);
@@ -922,7 +939,23 @@ const SettingsView = ({ theme, name, onSaveName, accounts, onSaveAccount, onDele
            ))}
         </div>
        </div>
+      {/* 新增：字體大小設定 */}
+      <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+         <h3 className="text-xs font-bold text-gray-400 mb-4 flex gap-2"><BookOpen className="w-4 h-4"/> 字體大小</h3>
+         <div className="bg-gray-100 p-1 rounded-xl flex">
+            {['small', 'medium', 'large'].map(size => (
+                <button 
+                    key={size} 
+                    onClick={() => onSetFontSize(size)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${fontSize === size ? 'bg-white shadow-sm text-gray-700' : 'text-gray-400'}`}
+                >
+                    {{small: '小', medium: '中', large: '大'}[size]}
+                </button>
+            ))}
+         </div>
+      </div>
 
+      {/* 原本的風格設定 ... */}
        <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
         <div className="flex justify-between items-center mb-4"><h3 className="text-xs font-bold text-gray-400 uppercase flex gap-2"><CreditCard className="w-4 h-4"/> 帳戶管理</h3><button onClick={()=>{if(addAcc)setAddAcc(false); else startAddAccount()}} className={`text-xs font-bold ${theme.accent} px-2 py-1 rounded-lg bg-gray-50`}>{addAcc?'取消':'+ 新增'}</button></div>
         {addAcc && (
