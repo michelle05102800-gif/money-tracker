@@ -631,7 +631,6 @@ const AnalysisView = ({ txs, theme, accounts, stats }) => {
 // 記得參數要加： transactions, budgetSetting
 const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit, onDel, onQuickAdd, transactions, budgetSetting }) => {
 
-  // 🔥 1. 計算預算進度
   const budgetData = useMemo(() => {
       if (!budgetSetting?.enabled || !budgetSetting.amount) return null;
       
@@ -655,9 +654,7 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
       const pct = Math.min(100, (current / budgetSetting.amount) * 100);
       const isExp = budgetSetting.type === 'expense';
       
-      // 🔥 顏色修改：跟分析頁面一致 (深紅/深綠)
-      // 支出預算 -> 用深紅 (代表支出)
-      // 收入目標 -> 用深綠 (代表收入)
+      // 顏色：支出用深紅，收入用深綠
       const color = isExp ? 'bg-red-700' : 'bg-emerald-700';
 
       return { current, target: budgetSetting.amount, pct, color, label: isExp ? '剩餘預算' : '距離目標', diff: budgetSetting.amount - current };
@@ -675,7 +672,7 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
          </div>
       </div>
 
-      {/* 🔥 預算區塊：有開啟顯示進度，沒開啟顯示引導按鈕 */}
+      {/* 預算區塊 */}
       {budgetSetting?.enabled && budgetData ? (
         <div className="bg-white p-5 rounded-[28px] shadow-sm border border-gray-100 relative overflow-hidden">
             <div className="flex justify-between items-end mb-2 relative z-10">
@@ -688,10 +685,19 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
                         ${budgetData.current.toLocaleString()} <span className="text-sm text-gray-300">/ ${budgetData.target.toLocaleString()}</span>
                     </h3>
                 </div>
+                
+                {/* 🔥 [修正區塊] 文字與顏色邏輯 */}
                 <div className="text-right">
                     <p className="text-xs font-bold text-gray-400">{budgetData.label}</p>
-                    <p className={`font-bold ${budgetData.diff < 0 ? 'text-red-700' : 'text-gray-600'}`}>
-                        {budgetData.diff < 0 ? (budgetSetting.type==='expense'?'超支 ':'還差 ') : ''}${Math.abs(budgetData.diff).toLocaleString()}
+                    <p className={`font-bold ${
+                        budgetData.diff < 0 
+                            ? (budgetSetting.type === 'expense' ? 'text-red-700' : 'text-emerald-700') // 超支紅，超存綠
+                            : 'text-gray-600'
+                    }`}>
+                        {budgetData.diff < 0 
+                            ? (budgetSetting.type === 'expense' ? '超支 ' : '🎉 恭喜超過 ') // 文字修正
+                            : ''}
+                        ${Math.abs(budgetData.diff).toLocaleString()}
                     </p>
                 </div>
             </div>
@@ -701,11 +707,10 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
                     style={{ width: `${budgetData.pct}%` }}
                 ></div>
             </div>
-            {/* 背景光暈也跟著變色 */}
             <div className={`absolute -right-5 -bottom-10 w-24 h-24 rounded-full opacity-10 blur-xl ${budgetSetting.type === 'expense' ? 'bg-red-700' : 'bg-emerald-700'}`}></div>
         </div>
       ) : (
-        /* 🔥 新增：引導按鈕 (當沒開啟預算時顯示) */
+        /* 引導按鈕 */
         <div onClick={() => onView('settings')} className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all group">
             <div className="flex items-center gap-3">
                 <div className={`p-3 rounded-2xl bg-gray-50 text-gray-400 group-hover:text-gray-600 group-hover:bg-gray-100 transition-colors`}>
