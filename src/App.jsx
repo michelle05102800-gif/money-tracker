@@ -540,7 +540,41 @@ const AnalysisView = ({ txs, theme, accounts, stats }) => {
           <div className="bg-gray-100 p-1 rounded-xl flex mb-2">{['year','month','week','day'].map(m=><button key={m} onClick={()=>setMode(m)} className={`flex-1 py-1 text-xs font-bold rounded-lg ${mode===m?'bg-white shadow-sm':'text-gray-400'}`}>{{year:'年',month:'月',week:'週',day:'日'}[m]}</button>)}</div>
           
           <div className="flex justify-between items-center bg-white p-2 rounded-2xl shadow-sm border border-gray-100"><button onClick={()=>changeDate(-1)} className="p-2 text-gray-500"><ChevronLeft/></button><span className="font-bold text-gray-700">{l}</span><button onClick={()=>changeDate(1)} className="p-2 text-gray-500"><ChevronRight/></button></div>
-          
+         
+        {/* 🔥 新增：收支結餘分析卡片 */}
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-3">
+             <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-gray-400">本期結餘 (收 - 支)</span>
+                <span className={`text-2xl font-bold ${data.net < 0 ? 'text-red-700' : 'text-gray-700'}`}>
+                  {data.net >= 0 ? '+' : ''}{data.net.toLocaleString()}
+                </span>
+             </div>
+
+             {/* 視覺化長條圖 (收入vs支出 比例) */}
+             <div className="h-2 w-full bg-gray-100 rounded-full flex overflow-hidden">
+                <div 
+                  style={{ width: `${(data.inc + data.exp) === 0 ? 0 : (data.inc / (data.inc + data.exp)) * 100}%` }} 
+                  className="h-full bg-emerald-400" 
+                />
+                <div 
+                  style={{ width: `${(data.inc + data.exp) === 0 ? 0 : (data.exp / (data.inc + data.exp)) * 100}%` }} 
+                  className="h-full bg-red-400" 
+                />
+             </div>
+
+             <div className="flex justify-between text-xs font-bold text-gray-500">
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                    <span>收入 ${data.inc.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                    <span>支出 ${data.exp.toLocaleString()}</span>
+                </div>
+             </div>
+          </div>
+
+        
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
             <h3 className="text-xs font-bold text-gray-400 mb-4 flex gap-2"><Wallet className="w-4 h-4"/> 資產分佈</h3>
             <CssPie data={data.assets} total={stats.balance} title="總資產" />
