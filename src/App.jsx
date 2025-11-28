@@ -1,10 +1,3 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/src/App.jsx b/src/App.jsx
-index 33a5cfae7caeed99e451b0187d1c808ad3f16c21..cbc453fa0515d95859adf5a4437203983657e684 100644
---- a/src/App.jsx
-+++ b/src/App.jsx
-@@ -1,44 +1,45 @@
-+/* global __initial_auth_token */
  import React, { useState, useEffect, useMemo } from 'react';
  import { 
    PieChart, Plus, List, Wallet, TrendingUp, TrendingDown, Trash2, 
