@@ -1371,7 +1371,3 @@ const EmptyState = ({ theme }) => (
     <p className="text-xs text-gray-300 mt-2 font-medium">點擊「+」開始記下第一筆</p>
   </div>
 );
-```
- 
-EOF
-)
