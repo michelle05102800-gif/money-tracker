@@ -17,7 +17,7 @@ import {
 } from 'firebase/auth';
 import { 
   getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc,
-  serverTimestamp, query, updateDoc, setDoc, writeBatch
+  serverTimestamp, query, updateDoc, setDoc, writeBatch, enableIndexedDbPersistence
 } from 'firebase/firestore';
 
 // 🔥 Config 區塊 (保持不變)
@@ -34,6 +34,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+enableIndexedDbPersistence(db)
+  .catch((err) => {
+      if (err.code == 'failed-precondition') {
+          console.log('多個分頁開啟中，離線功能只能在一個分頁運作');
+      } else if (err.code == 'unimplemented') {
+          console.log('瀏覽器不支援');
+      }
+  });
+
 const googleProvider = new GoogleAuthProvider();
 const appId = "smart-wallet";
 
