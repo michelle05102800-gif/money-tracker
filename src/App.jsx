@@ -1073,7 +1073,7 @@ const AddView = ({ onSave, onCancel, theme, accounts, initData, defAccId, catego
              <DollarSign className={`w-6 h-6 ${theme.accent} mr-2`}/>
              <input 
                 type="text" 
-                inputMode="decimal" 
+                inputMode="text" 
                 value={amt} 
                 onChange={e=>setAmt(e.target.value)} 
                 onBlur={calculateAmount}
