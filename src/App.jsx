@@ -592,7 +592,10 @@ const AnalysisView = ({ txs, accounts, stats }) => {
   const { l, s, e } = getRange();
 
   const data = useMemo(() => {
-      const f = txs.filter(t => t.date>=s && t.date<=e && !(mode==='month' && t.type==='expense' && t.excludeFromMonthly));
+      // 原本是：&& !(mode==='month' && t.type==='expense' && t.excludeFromMonthly)
+      // 修改後：移除 mode==='month' 的條件
+      const f = txs.filter(t => t.date>=s && t.date<=e && !(t.type==='expense' && t.excludeFromMonthly));
+      
       const inc = f.filter(t=>t.type==='income').reduce((a,b)=>a+b.amount,0);
       const exp = f.filter(t=>t.type==='expense').reduce((a,b)=>a+b.amount,0);
       
@@ -713,7 +716,7 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
       const monthExpenseDiff = monthExpense - lastMonthExpense;
       const monthlyMaxExpense = monthExpenseTx.reduce((max, t) => Math.max(max, t.amount), 0);
       const weeklyMaxExpense = transactions
-        .filter(t => t.type === 'expense' && t.date >= weekStart && t.date <= weekEnd)
+        .filter(t => t.type === 'expense' && t.date >= weekStart && t.date <= weekEnd && !t.excludeFromMonthly)
         .reduce((max, t) => Math.max(max, t.amount), 0);
 
       const formatMoney = (val) => `$${Math.round(val).toLocaleString()}`;
@@ -776,7 +779,9 @@ const DashboardView = ({ stats, recents, onView, theme, hasTx, accounts, onEdit,
       }
 
       const current = transactions
-        .filter(t => new Date(t.date) >= start && t.type === budgetSetting.type && !(budgetSetting.cycle === 'month' && t.type === 'expense' && t.excludeFromMonthly))
+        // 原本是：&& !(budgetSetting.cycle === 'month' && t.type === 'expense' && t.excludeFromMonthly)
+        // 修改後：移除 budgetSetting.cycle === 'month'
+        .filter(t => new Date(t.date) >= start && t.type === budgetSetting.type && !(t.type === 'expense' && t.excludeFromMonthly))
         .reduce((sum, t) => sum + t.amount, 0);
       
       const pct = Math.min(100, (current / budgetSetting.amount) * 100);
@@ -1086,8 +1091,9 @@ const AddView = ({ onSave, onCancel, theme, accounts, initData, defAccId, catego
       {type==='expense' && (
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-bold text-gray-500">排除本月消費</p>
-            <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">不納入「本月支出」統計與相關平均值，可用於分期、長期費用。</p>
+            {/* 修改這裡的文字 */}
+            <p className="text-xs font-bold text-gray-500">不計入統計</p>
+            <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">該筆支出將不會出現在任何報表、預算或統計數據中。</p>
           </div>
           <button
             onClick={()=>setExcludeMonthly(v=>!v)}
