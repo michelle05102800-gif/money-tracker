@@ -54,7 +54,8 @@ const ACCOUNT_ICONS = [
   { id: 'card', icon: CreditCard, label: '卡片' },
   { id: 'wallet', icon: Wallet, label: '錢包' },
   { id: 'bus', icon: Bus, label: '悠遊卡' },
-  { id: 'train', icon: Train, label: '捷運' },+  { id: 'piggy', icon: PiggyBank, label: '儲蓄' },
+  { id: 'train', icon: Train, label: '捷運' },
+  { id: 'piggy', icon: PiggyBank, label: '儲蓄' },
   { id: 'safe', icon: Briefcase, label: '保險' },
   { id: 'smile', icon: Smile, label: '其他' },
 ];
